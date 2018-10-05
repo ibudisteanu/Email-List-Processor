@@ -1,0 +1,11 @@
+{
+	"name": "Budis",
+	"description": "Listing smtp information from an email address and checking its password. TLS/SSL",
+	"main": "index.js",
+	"dependencies": {
+		"shelljs": "^0.8.2"
+	},
+	"scripts":{
+		"start": "node index.js"
+	}
+}
