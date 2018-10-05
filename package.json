@@ -3,9 +3,11 @@
 	"description": "Listing smtp information from an email address and checking its password. TLS/SSL",
 	"main": "index.js",
 	"dependencies": {
+		"nodemailer": "^4.6.8",
+		"ping": "^0.2.2",
 		"shelljs": "^0.8.2"
 	},
-	"scripts":{
+	"scripts": {
 		"start": "node index.js"
 	}
 }
